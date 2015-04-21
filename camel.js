@@ -53,16 +53,6 @@ var CamelTweet = require('./lib/tweet');
 ***************************************************/
 
 
-
-function performMetadataReplacements(replacements, haystack) {
-	_.keys(replacements).each(function (key) {
-		// Ensure that it's a global replacement; non-regex treatment is first-only.
-		haystack = haystack.replace(new RegExp(metadataMarker + key + metadataMarker, 'g'), replacements[key]);
-	});
-
-	return haystack;
-}
-
 function loadHeaderFooter(file, completion) {
 	fs.exists(templateRoot + file, function(exists) {
 		if (exists) {
@@ -243,7 +233,7 @@ function sendYearListing(request, response) {
 			retVal += "<i>No posts found.</i>";
 		}
 
-		var updatedSource = performMetadataReplacements(global.siteMetadata, headerSource);
+		var updatedSource = CUtils.replaceMetadata(global.siteMetadata, headerSource);
 		var header = updatedSource.replace(metadataMarker + 'Title' + metadataMarker, 'Posts for ' + year);
 		response.status(200).send(header + retVal + global.footerSource);
 	});
@@ -373,7 +363,7 @@ function homepageBuilder(page, completion, redirect) {
 		var titleEnd = header.indexOf('</title>');
 		header = header.substring(0, titleBegin) + metadata.SiteTitle + header.substring(titleEnd);
 		// Carry on with body
-		bodyHtml = performMetadataReplacements(metadata, bodyHtml);
+		bodyHtml = CUtils.replaceMetadata(metadata, bodyHtml);
 		var fullHtml = header + bodyHtml + footerTemplate(footerData) + global.footerSource;
 		completion(fullHtml);
 	});
