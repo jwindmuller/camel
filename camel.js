@@ -26,17 +26,14 @@ var server = http.createServer(app);
 var postsRoot = './posts/';
 var templateRoot = './templates/';
 var metadataMarker = '@@';
-var maxCacheSize = 50;
 
 var footnoteAnchorRegex = /[#"]fn\d+/g;
 var footnoteIdRegex = /fnref\d+/g;
 var utcOffset = 5;
 var cacheResetTimeInMillis = 1800000;
 
-var renderedPosts = {};
 var renderedRss = {};
 var renderedAlternateRss = {};
-var allPostsSortedGrouped = {};
 global.headerSource;
 global.footerSource = null;
 global.postHeaderTemplate = null;
