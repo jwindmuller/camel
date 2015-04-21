@@ -65,40 +65,7 @@ var CCache = require('./lib/caching');
 * HELPER METHODS                                  *
 ***************************************************/
 
-function normalizedFileName(file) {
-	var retVal = file;
-	if (file.startsWith('posts')) {
-		retVal = './' + file;
-	}
 
-	retVal = retVal.replace('.md', '');
-
-	return retVal;
-}
-
-// Parses the metadata in the file
-function parseMetadata(lines) {
-	var retVal = {};
-
-	lines.each(function (line) {
-		line = line.replace(metadataMarker, '');
-		line = line.compact();
-		if (line.has('=')) {
-			var firstIndex = line.indexOf('=');
-			retVal[line.first(firstIndex)] = line.from(firstIndex + 1);
-		}
-	});
-
-	// NOTE: Some metadata is added in generateHtmlAndMetadataForFile().
-
-	// Merge with site default metadata
-	Object.merge(retVal, siteMetadata, false, function(key, targetVal, sourceVal) {
-		// Ensure that the file wins over the defaults.
-		return targetVal;
-	});
-
-	return retVal;
-}
 
 function performMetadataReplacements(replacements, haystack) {
 	_.keys(replacements).each(function (key) {
@@ -188,7 +155,7 @@ function emptyCache() {
 function init() {
 	loadHeaderFooter('defaultTags.html', function (data) {
 		// Note this comes in as a flat string; split on newlines for parsing metadata.
-		global.siteMetadata = parseMetadata(data.split('\n'));
+		global.siteMetadata = CUtils.parseMetadata(data.split('\n'));
 
 		// This relies on the above, so nest it.
 		loadHeaderFooter('header.html', function (data) {
