@@ -81,16 +81,6 @@ function loadHeaderFooter(file, completion) {
 	});
 }
 
-// Empties the caches.
-function emptyCache() {
-	console.log('Emptying the cache.');
-	renderedPosts = {};
-	renderedRss = {};
-	allPostsSortedGrouped = {};
-
-	CamelTweet.tweetLatestPost();
-}
-
 function init() {
 	loadHeaderFooter('defaultTags.html', function (data) {
 		// Note this comes in as a flat string; split on newlines for parsing metadata.
@@ -118,7 +108,9 @@ function init() {
 	});
 
 	// Kill the cache every 30 minutes.
-	setInterval(emptyCache, cacheResetTimeInMillis);
+	setInterval(function() {
+		CCache.empty();
+	}, cacheResetTimeInMillis);
 
 	CamelTweet.tweetLatestPost();
 }
@@ -543,7 +535,7 @@ app.get('/:year/:month/:day/:slug', function (request, response) {
 
 // Empties the cache.
 // app.get('/tosscache', function (request, response) {
-//     emptyCache();
+//     CCache.empty();
 //     response.send(205);
 // });
 
