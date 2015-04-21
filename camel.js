@@ -17,13 +17,6 @@ var markdownit = require('markdown-it')({
 var Rss = require('rss');
 var Handlebars = require('handlebars');
 var version = require('./package.json').version;
-var Twitter = require('twitter');
-var twitterClient = new Twitter({
-	consumer_key: process.env.TWITTER_CONSUMER_KEY,
-	consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
-	access_token_key: process.env.TWITTER_ACCESS_TOKEN,
-	access_token_secret: process.env.TWITTER_TOKEN_SECRET
-});
 
 var app = express();
 app.use(compress());
@@ -45,8 +38,6 @@ var footnoteAnchorRegex = /[#"]fn\d+/g;
 var footnoteIdRegex = /fnref\d+/g;
 var utcOffset = 5;
 var cacheResetTimeInMillis = 1800000;
-var twitterUsername = 'caseylisscom';
-var twitterClientNeedle = 'Camel Spitter';
 
 var renderedPosts = {};
 var renderedRss = {};
@@ -61,6 +52,8 @@ global.siteMetadata = {};
 var Posts = require('./lib/posts');
 var CUtils  = require('./lib/camel_utils');
 var CCache = require('./lib/caching');
+var CamelTweet = require('./lib/tweet');
+
 /***************************************************
 * HELPER METHODS                                  *
 ***************************************************/
@@ -74,60 +67,6 @@ function performMetadataReplacements(replacements, haystack) {
 	});
 
 	return haystack;
-}
-
-function tweetLatestPost() {
-	if (twitterClient !== null && typeof(process.env.TWITTER_CONSUMER_KEY) !== 'undefined') {
-		twitterClient.get('statuses/user_timeline', {screen_name: twitterUsername}, function (error, tweets) {
-			if (error) {
-				console.log(JSON.stringify(error, undefined, 2));
-				return;
-			}
-
-			var lastUrl = null, i = 0;
-			while (lastUrl === null && i < tweets.length) {
-				if (tweets[i].source.has(twitterClientNeedle) &&
-					tweets[i].entities &&
-					tweets[i].entities.urls) {
-					lastUrl = tweets[i].entities.urls[0].expanded_url;
-				} else {
-					i += 1;
-				}
-			}
-
-			Posts.sortedAndGrouped(function (postsByDay) {
-				var latestPost = postsByDay[0].articles[0];
-				var link = latestPost.metadata.SiteRoot + latestPost.metadata.relativeLink;
-
-				if (lastUrl !== link) {
-					console.log('Tweeting new link: ' + link);
-
-					// Figure out how many characters we have to play with.
-					twitterClient.get('help/configuration', null, function (error, configuration) {
-						var suffix = " \n\n";
-						var maxSize = 140 - configuration.short_url_length_https - suffix.length;
-
-						// Shorten the title if need be.
-						var title = latestPost.metadata.Title;
-						if (title.length > maxSize) {
-							title = title.substring(0, maxSize - 3) + '...';
-						}
-
-						var params = {
-							status: title + suffix + link
-						};
-						twitterClient.post('statuses/update', params, function (error, tweet, response) {
-								if (error) {
-									console.log(JSON.stringify(error, undefined, 2));
-								}
-						});
-					});
-				} else {
-					console.log('Twitter is up to date.');
-				}
-			});
-		});
-	}
 }
 
 function loadHeaderFooter(file, completion) {
@@ -149,7 +88,7 @@ function emptyCache() {
 	renderedRss = {};
 	allPostsSortedGrouped = {};
 
-	tweetLatestPost();
+	CamelTweet.tweetLatestPost();
 }
 
 function init() {
@@ -181,7 +120,7 @@ function init() {
 	// Kill the cache every 30 minutes.
 	setInterval(emptyCache, cacheResetTimeInMillis);
 
-	tweetLatestPost();
+	CamelTweet.tweetLatestPost();
 }
 
 // Gets the rendered HTML for this file, with header/footer.
