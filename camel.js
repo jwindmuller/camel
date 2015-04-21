@@ -109,39 +109,6 @@ function performMetadataReplacements(replacements, haystack) {
 	return haystack;
 }
 
-// Gets the metadata & rendered HTML for this file
-function generateHtmlAndMetadataForFile(file) {
-	var rendered = CCache.getRenderedPost(file);
-	if (typeof(rendered) !== 'undefined') {
-		CCache.setRenderedPost(file, buildPostObject(file));
-		rendered = CCache.getRenderedPost(file);
-	}
-	return rendered;
-}
-
-function buildPostObject(file) {
-	var lines = CUtils.getLinesFromPost(file);
-	var metadata = parseMetadata(lines.metadata);
-	metadata.relativeLink = CUtils.externalFilenameForFile(file);
-	// If this is a post, assume a body class of 'post'.
-	if (CUtils.fileIsPost(file)) {
-		metadata.BodyClass = 'post';
-	}
-	return {
-		metadata: metadata,
-		header: performMetadataReplacements(metadata, global.headerSource),
-		postHeader:  performMetadataReplacements(metadata, global.postHeaderTemplate(metadata)),
-		rssFooter: performMetadataReplacements(metadata, global.rssFooterTemplate(metadata)),
-		unwrappedBody: performMetadataReplacements(metadata, markdownit.render(lines.body)),
-		html: function () {
-			return this.header +
-				this.postHeader +
-				this.unwrappedBody +
-				global.footerSource;
-		}
-	};
-}
-
 function tweetLatestPost() {
 	if (twitterClient !== null && typeof(process.env.TWITTER_CONSUMER_KEY) !== 'undefined') {
 		twitterClient.get('statuses/user_timeline', {screen_name: twitterUsername}, function (error, tweets) {
@@ -252,7 +219,7 @@ function init() {
 
 // Gets the rendered HTML for this file, with header/footer.
 function generateHtmlForFile(file) {
-	var fileData = generateHtmlAndMetadataForFile(file);
+	var fileData = Posts.generateHtmlAndMetadataForFile(file);
 	return fileData.html();
 }
 
@@ -458,7 +425,7 @@ function generateRss(request, feedUrl, linkGenerator, completion) {
 }
 
 function homepageBuilder(page, completion, redirect) {
-	var indexInfo = generateHtmlAndMetadataForFile(postsRoot + 'index.md');
+	var indexInfo = Posts.generateHtmlAndMetadataForFile(postsRoot + 'index.md');
 	var footnoteIndex = 0;
 
 	Handlebars.registerHelper('formatDate', function (date) {
@@ -506,7 +473,7 @@ function homepageBuilder(page, completion, redirect) {
 			footerData.nextPage = page + 1;
 		}
 
-		var fileData = generateHtmlAndMetadataForFile(postsRoot + 'index.md');
+		var fileData = Posts.generateHtmlAndMetadataForFile(postsRoot + 'index.md');
 		var metadata = fileData.metadata;
 		var header = fileData.header;
 		// Replace <title>...</title> with one-off for homepage, because it doesn't show both Page & Site titles.
