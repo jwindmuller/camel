@@ -6,14 +6,8 @@ var express = require('express');
 var compress = require('compression');
 var http = require('http');
 var fs = require('fs');
-var qfs = require('q-io/fs');
 var sugar = require('sugar');
 var _ = require('underscore');
-var markdownit = require('markdown-it')({
-	html: true,
-	xhtmlOut: true,
-	typographer: true
-}).use(require('markdown-it-footnote'));
 var Rss = require('rss');
 var Handlebars = require('handlebars');
 var version = require('./package.json').version;
