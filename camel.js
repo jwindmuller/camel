@@ -27,7 +27,7 @@ var postsRoot = './posts/';
 var templateRoot = './templates/';
 var metadataMarker = '@@';
 var maxCacheSize = 50;
-var postsPerPage = 10;
+
 var footnoteAnchorRegex = /[#"]fn\d+/g;
 var footnoteIdRegex = /fnref\d+/g;
 var utcOffset = 5;
@@ -103,36 +103,6 @@ function init() {
 function generateHtmlForFile(file) {
 	var fileData = Posts.generateHtmlAndMetadataForFile(file);
 	return fileData.html();
-}
-
-// Gets all the posts, paginated.
-// Goes through the posts, descending date order, and joins
-// days together until there are 10 or more posts. Once 10
-// posts are hit, that's considered a page.
-// Forcing to exactly 10 posts per page seemed artificial, and,
-// frankly, harder.
-function allPostsPaginated(completion) {
-	Posts.sortedAndGrouped(function(postsByDay) {
-		var pages = [];
-		var thisPageDays = [];
-		var count = 0;
-		postsByDay.each(function (day) {
-			count += day.articles.length;
-			thisPageDays.push(day);
-			// Reset count if need be
-			if (count >= postsPerPage) {
-				pages.push({ page: pages.length + 1, days: thisPageDays });
-				thisPageDays = [];
-				count = 0;
-			}
-		});
-
-		if (thisPageDays.length > 0) {
-			pages.push({ page: pages.length + 1, days: thisPageDays});
-		}
-
-		completion(pages);
-	});
 }
 
 /***************************************************
@@ -334,7 +304,7 @@ function homepageBuilder(page, completion, redirect) {
 
 	var bodyHtml = '';
 
-	allPostsPaginated(function (pages) {
+	Posts.paginated(function (pages) {
 
 		// If we're asking for a page that doesn't exist, redirect.
 		if (page < 0 || page > pages.length) {
