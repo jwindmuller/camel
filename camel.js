@@ -304,14 +304,7 @@ app.get('/', function (request, response) {
         }
     }
 
-    // Do the standard route handler. Cough up a cached page if possible.
-    baseRouteHandler('/page/1', function (cachedData) {
-        response.status(200).send(cachedData.body);
-    }, function (completion) {
-        homepageBuilder(page, completion, function (destination) {
-        	response.redirect(destination);
-        });
-    });
+    respondWithPage(1, response);
 });
 
 app.get('/page/:page', function (request, response) {
@@ -321,15 +314,23 @@ app.get('/page/:page', function (request, response) {
 		return;
 	}
 
-	// Do the standard route handler. Cough up a cached page if possible.
-    baseRouteHandler('/page/' + page, function (cachedData) {
-        response.status(200).send(cachedData.body);
-    }, function (completion) {
-        homepageBuilder(page, completion, function (destination) {
-        	response.redirect(destination);
-        });
-    });
+	respondWithPage(page, response);
 });
+
+
+function respondWithPage(page, response) {
+	// Do the standard route handler. Cough up a cached page if possible.
+    baseRouteHandler('/page/' + page,
+    	function (cachedData) {
+        	response.status(200).send(cachedData.body);
+    	},
+    	function (completion) {
+        	homepageBuilder(page, completion, function (destination) {
+        		response.redirect(destination);
+        	});
+    	}
+    );
+}
 
 app.get('/rss', function (request, response) {
 	CamelRss.respondRss(request, response, false);
