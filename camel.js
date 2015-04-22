@@ -306,40 +306,10 @@ app.get(/^\/(\d{4})\/?$/, function(request, response) {
 		filtering: {
 			year: year
 		},
-		completion: function(postsByDay) {
-			var previousMonth = null;
-			var html = '<div class="center"><h1>' + year + '</h1></div>';
-			postsByDay.each(function (day) {
-				var thisDay = Date.create(day.date);
-				var postMonth = thisDay.getMonth();
-				if (previousMonth !== postMonth) {
-					previousMonth = postMonth;
-					html += util.format(
-						'%s<h2><a href="/%s/%s/">%s</a></h2>\n<ul>',
-						previousMonth === null ? '' : '</ul>\n\n',
-						year, (postMonth + 1), thisDay.format('{Month}')
-					);
-				}
-
-				day.articles.each(function (article) {
-					html += util.format(
-						'<li><a href="%s">%s</a></li>',
-						CUtils.externalFilenameForFile(article.file),
-						article.metadata.Title
-					)
-				});
-			});
-
-			if (postsByDay.length === 0) {
-				html += "<i>No posts found.</i>";
-			} else {
-				html += '</ul>\n\n';
-			}
-
-			var updatedSource = CUtils.replaceMetadata(global.siteMetadata, headerSource);
-			var header = updatedSource.replace(metadataMarker + 'Title' + metadataMarker, 'Posts for ' + year);
-			response.status(200).send(header + html + global.footerSource);
-		}
+		completion: postListBuilder(request, response,
+			year,
+			'{Month}', '{MM}'
+		)
 	});
 });
 
@@ -351,38 +321,10 @@ app.get('/:year/:month', function (request, response) {
 			year : request.params.year,
 			month: request.params.month - 1
 		},
-		completion: function(postsByDay) {
-			var anyFound = false;
-			var html = util.format(
-				'<div class="center"><h1>%s</h1></div>',
-				seekingDay.format('{Month} {yyyy}')
-			);
-			postsByDay.each(function (day) {
-	            var thisDay = new Date(day.date);
-				var links = '';
-				day.articles.each(function (article) {
-					links += util.format(
-						'<li><a href="%s">%s</a></li>',
-						article.metadata.relativeLink,
-						article.metadata.Title
-					);
-				});
-				html += util.format(
-					'<h2>%s</h2><ul>%s</ul>',
-					thisDay.format('{Weekday}, {Month} {d}'),
-					links
-				);
-			});
-
-			if (postsByDay.length === 0) {
-				html += "<i>No posts found.</i>";
-			}
-			var header = CUtils.replaceMetadata(global.siteMetadata, headerSource).replace(
-				metadataMarker + 'Title' + metadataMarker,
-				seekingDay.format('{Month} {yyyy}') + '&mdash;' + siteMetadata.SiteTitle
-			);
-			response.status(200).send(header + html + global.footerSource);
-		}
+		completion: postListBuilder(request, response,
+			seekingDay.format('{Month}'),
+			'{Weekday}, {Month} {d}', '{dd}'
+		)
 	});
 });
 
@@ -396,32 +338,69 @@ app.get('/:year/:month/:day', function (request, response) {
 				month: request.params.month - 1,
 				day  : request.params.day,
 			},
-			completion: function(postsByDay) {
-				postsByDay.each(function (day) {
-					var links = '';
-					day.articles.each(function (article) {
-						links += util.format(
-							'<li><a href="%s">%s</a></li>',
-							article.metadata.relativeLink,
-							article.metadata.Title
-						);
-					});
-					var html = util.format(
-						'<h1>Posts from %s</h1><ul>%s</ul>',
-						seekingDay.format('{Weekday}, {Month} {d}, {yyyy}'),
-						links
-					);
-					
-					var header = CUtils.replaceMetadata(global.siteMetadata, headerSource).replace(
-						metadataMarker + 'Title' + metadataMarker,
-						seekingDay.format('{Weekday}, {Month} {d}, {Year}')
-					);
-					response.status(200).send(header + html + global.footerSource);
-				});
-			}
+			completion: postListBuilder(request, response,
+				util.format(
+					'<h1>Posts from %s</h1>',
+					seekingDay.format('{Weekday}, {Month} {d}, {yyyy}')
+				),
+				'', false
+			)
 		}
 	);
 });
+
+function postListBuilder(request, response, title, subTitleFormat, subtitleLinkFormat) {
+    return function(postsByDay) {
+        var pageContent  = util.format('<h1>%s</h1>', title);
+        var lastSubtitle = '';
+        var links        = '';
+        postsByDay.each(function(day) {
+            var subtitle = day.date.format(subTitleFormat);
+            if (subtitleLinkFormat) {
+            	subtitle = util.format('<a href="%s">%s</a>', day.date.format(subtitleLinkFormat), subtitle);
+            }
+            subtitle = util.format('<h2>%s</h2>', subtitle);
+
+            if (subTitleFormat !== '' && subtitle != lastSubtitle) {
+            	if (links !== '') {
+            		pageContent += util.format('<ul>%s</ul>', links);
+            	}
+                pageContent += subtitle;
+                lastSubtitle = subtitle;
+                links = '';
+            }
+
+            day.articles.each(function (article) {
+                links += util.format(
+                    '<li><a href="%s">%s</a></li>',
+                    article.metadata.relativeLink,
+                    article.metadata.Title
+                );
+            });
+
+            if (subTitleFormat === '') {
+            	pageContent += util.format('<ul>%s</ul>', links);
+            	links = '';
+            }
+ 
+        });
+        if (links !== '') {
+        	pageContent += util.format('<ul>%s</ul>', links);
+        }
+
+        if (postsByDay.length === 0) {
+            pageContent += "<i>No posts found.</i>";
+        }
+
+         var header = CUtils.replaceMetadata(global.siteMetadata, headerSource).replace(
+            metadataMarker + 'Title' + metadataMarker,
+            title + '&mdash;' + siteMetadata.SiteTitle
+        );
+        response.status(200).send(
+            header + pageContent + global.footerSource
+        );
+    };
+}
 
 
 // Get a blog post, such as /2014/3/17/birthday
