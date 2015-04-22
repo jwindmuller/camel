@@ -106,25 +106,7 @@ function send404(response, file) {
 }
 
 function loadAndSendMarkdownFile(file, response) {
-	if (file.endsWith('.md')) {
-		// Send the source file as requested.
-		console.log('Sending source file: ' + file);
-		fs.exists(file, function (exists) {
-			if (exists) {
-				fs.readFile(file, {encoding: 'UTF8'}, function (error, data) {
-					if (error) {
-						response.status(500).send({error: error});
-						return;
-					}
-					response.type('text/x-markdown; charset=UTF-8');
-					response.status(200).send(data);
-					return;
-				});
-			} else {
-				response.status(400).send({error: 'Markdown file not found.'});
-			}
-		});
-	} else if (CCache.getRenderedPost(file) !== null) {
+	if (CCache.getRenderedPost(file) !== null) {
 		// Send the cached version.
 		console.log('Sending cached file: ' + file);
 		response.status(200).send(CCache.getRenderedPost(file).html());
