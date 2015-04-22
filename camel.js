@@ -297,7 +297,7 @@ app.get('/rss-alternate', function (request, response) {
 });
 
 // Year view
-app.get(/(\d{4})/, function(request, response) {
+app.get(/^\/(\d{4})\/?$/, function(request, response) {
 	var year = request.params[0];
 	
 	var currentMonth = null;
