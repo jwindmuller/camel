@@ -5,6 +5,7 @@
 var express = require('express');
 var compress = require('compression');
 var http = require('http');
+var util = require('util');
 var fs = require('fs');
 var sugar = require('sugar');
 var _ = require('underscore');
@@ -156,51 +157,6 @@ function loadAndSendMarkdownFile(file, response) {
 	}
 }
 
-// Sends a listing of an entire year's posts.
-function sendYearListing(request, response) {
-	var year = request.params.slug;
-	var retVal = '<div class="center"><h1>' + year + '</h1></div>';
-	var currentMonth = null;
-	var anyFound = false;
-
-	Posts.sortedAndGrouped(function(postsByDay) {
-		postsByDay.each(function (day) {
-			var thisDay = Date.create(day.date);
-			if (thisDay.is(year)) {
-				// Date.isBetween() is not inclusive, so back the from date up one
-				var thisMonth = new Date(Number(year), Number(currentMonth)).addDays(-1);
-				// ...and advance the to date by two (one to offset above, one to genuinely add).
-				var nextMonth = Date.create(thisMonth).addMonths(1).addDays(2);
-
-				//console.log(thisMonth.short() + ' <-- ' + thisDay.short() + ' --> ' + nextMonth.short() + '?   ' + (thisDay.isBetween(thisMonth, nextMonth) ? 'YES' : 'NO'));
-				if (currentMonth === null || !thisDay.isBetween(thisMonth, nextMonth)) {
-					// If we've started a month list, end it, because we're on a new month now.
-					if (currentMonth >= 0) {
-						retVal += '</ul>';
-					}
-
-					anyFound = true;
-					currentMonth = thisDay.getMonth();
-					retVal += '<h2><a href="/' + year + '/' + (currentMonth + 1) + '/">' + thisDay.format('{Month}') + '</a></h2>\n<ul>';
-				}
-
-				day.articles.each(function (article) {
-					retVal += '<li><a href="' + CUtils.externalFilenameForFile(article.file) + '">' + article.metadata.Title + '</a></li>';
-				});
-			}
-		});
-
-		if (!anyFound) {
-			retVal += "<i>No posts found.</i>";
-		}
-
-		var updatedSource = CUtils.replaceMetadata(global.siteMetadata, headerSource);
-		var header = updatedSource.replace(metadataMarker + 'Title' + metadataMarker, 'Posts for ' + year);
-		response.status(200).send(header + retVal + global.footerSource);
-	});
-
-}
-
 // Handles a route by trying the cache first.
 // file: file to try.
 // sender: function to send result to the client. Only parameter is an object that has the key 'body', which is raw HTML
@@ -340,58 +296,131 @@ app.get('/rss-alternate', function (request, response) {
 	CamelRss.respondRss(request, response, true);
 });
 
+// Year view
+app.get(/(\d{4})/, function(request, response) {
+	var year = request.params[0];
+	
+	var currentMonth = null;
+	
+	Posts.sortedAndGrouped({
+		filtering: {
+			year: year
+		},
+		completion: function(postsByDay) {
+			var previousMonth = null;
+			var html = '<div class="center"><h1>' + year + '</h1></div>';
+			postsByDay.each(function (day) {
+				var thisDay = Date.create(day.date);
+				var postMonth = thisDay.getMonth();
+				if (previousMonth !== postMonth) {
+					previousMonth = postMonth;
+					html += util.format(
+						'%s<h2><a href="/%s/%s/">%s</a></h2>\n<ul>',
+						previousMonth === null ? '' : '</ul>\n\n',
+						year, (postMonth + 1), thisDay.format('{Month}')
+					);
+				}
+
+				day.articles.each(function (article) {
+					html += util.format(
+						'<li><a href="%s">%s</a></li>',
+						CUtils.externalFilenameForFile(article.file),
+						article.metadata.Title
+					)
+				});
+			});
+
+			if (postsByDay.length === 0) {
+				html += "<i>No posts found.</i>";
+			} else {
+				html += '</ul>\n\n';
+			}
+
+			var updatedSource = CUtils.replaceMetadata(global.siteMetadata, headerSource);
+			var header = updatedSource.replace(metadataMarker + 'Title' + metadataMarker, 'Posts for ' + year);
+			response.status(200).send(header + html + global.footerSource);
+		}
+	});
+});
+
 // Month view
 app.get('/:year/:month', function (request, response) {
-
-	Posts.sortedAndGrouped(function(postsByDay) {
-		var seekingDay = new Date(request.params.year, request.params.month - 1);
-
-		var html = '<div class="center"><h1>' + seekingDay.format('{Month} {yyyy}') + "</h1></div>";
-		var anyFound = false;
-		postsByDay.each(function (day) {
-			var thisDay = new Date(day.date);
-			if (thisDay.is(seekingDay.format('{Month} {yyyy}'))) {
-				anyFound = true;
-
-				html += "<h2>" + thisDay.format('{Weekday}, {Month} {d}') + "</h2><ul>";
+	var seekingDay = new Date(request.params.year, request.params.month - 1);
+	Posts.sortedAndGrouped({
+		filtering: {
+			year : request.params.year,
+			month: request.params.month - 1
+		},
+		completion: function(postsByDay) {
+			var anyFound = false;
+			var html = util.format(
+				'<div class="center"><h1>%s</h1></div>',
+				seekingDay.format('{Month} {yyyy}')
+			);
+			postsByDay.each(function (day) {
+	            var thisDay = new Date(day.date);
+				var links = '';
 				day.articles.each(function (article) {
-					html += '<li><a href="' + article.metadata.relativeLink + '">' + article.metadata.Title + '</a></li>';
+					links += util.format(
+						'<li><a href="%s">%s</a></li>',
+						article.metadata.relativeLink,
+						article.metadata.Title
+					);
 				});
-				html += '</ul>';
-			}
-		});
+				html += util.format(
+					'<h2>%s</h2><ul>%s</ul>',
+					thisDay.format('{Weekday}, {Month} {d}'),
+					links
+				);
+			});
 
-		if (!anyFound) {
-			html += "<i>No posts found.</i>";
+			if (postsByDay.length === 0) {
+				html += "<i>No posts found.</i>";
+			}
+			var header = CUtils.replaceMetadata(global.siteMetadata, headerSource).replace(
+				metadataMarker + 'Title' + metadataMarker,
+				seekingDay.format('{Month} {yyyy}') + '&mdash;' + siteMetadata.SiteTitle
+			);
+			response.status(200).send(header + html + global.footerSource);
 		}
-		var header = CUtils.replaceMetadata(global.siteMetadata, headerSource).replace(
-			metadataMarker + 'Title' + metadataMarker,
-			seekingDay.format('{Month} {yyyy}') + '&mdash;' + siteMetadata.SiteTitle);
-		response.status(200).send(header + html + global.footerSource);
 	});
 });
 
 // Day view
 app.get('/:year/:month/:day', function (request, response) {
-
-	Posts.sortedAndGrouped(function(postsByDay) {
-		var seekingDay = new Date(request.params.year, request.params.month - 1, request.params.day);
-
-		postsByDay.each(function (day) {
-			var thisDay = new Date(day.date);
-			if (thisDay.is(seekingDay)) {
-				var html = "<h1>Posts from " + seekingDay.format('{Weekday}, {Month} {d}, {yyyy}') + "</h1><ul>";
-				day.articles.each(function (article) {
-					html += '<li><a href="' + article.metadata.relativeLink + '">' + article.metadata.Title + '</a></li>';
+	var seekingDay = new Date(request.params.year, request.params.month - 1, request.params.day);
+	Posts.sortedAndGrouped(
+		{
+			filtering: {
+				year : request.params.year,
+				month: request.params.month - 1,
+				day  : request.params.day,
+			},
+			completion: function(postsByDay) {
+				postsByDay.each(function (day) {
+					var links = '';
+					day.articles.each(function (article) {
+						links += util.format(
+							'<li><a href="%s">%s</a></li>',
+							article.metadata.relativeLink,
+							article.metadata.Title
+						);
+					});
+					var html = util.format(
+						'<h1>Posts from %s</h1><ul>%s</ul>',
+						seekingDay.format('{Weekday}, {Month} {d}, {yyyy}'),
+						links
+					);
+					
+					var header = CUtils.replaceMetadata(global.siteMetadata, headerSource).replace(
+						metadataMarker + 'Title' + metadataMarker,
+						seekingDay.format('{Weekday}, {Month} {d}, {Year}')
+					);
+					response.status(200).send(header + html + global.footerSource);
 				});
-
-				var header = CUtils.replaceMetadata(global.siteMetadata, headerSource).replace(
-					metadataMarker + 'Title' + metadataMarker,
-					seekingDay.format('{Weekday}, {Month} {d}, {Year}'));
-				response.status(200).send(header + html + global.footerSource);
 			}
-		});
-	});
+		}
+	);
 });
 
 
@@ -429,9 +458,6 @@ app.get('/:slug', function (request, response) {
 	if (isNaN(request.params.slug)) {
 		var file = postsRoot + request.params.slug;
 		loadAndSendMarkdownFile(file, response);
-	// If it's a year, handle that.
-	} else if (request.params.slug >= 2000) {
-		sendYearListing(request, response);
 	// If it's garbage (ie, a year less than 2013), send a 404.
 	} else {
 		send404(response, request.params.slug);
