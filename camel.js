@@ -8,7 +8,7 @@ var http = require('http');
 var fs = require('fs');
 var sugar = require('sugar');
 var _ = require('underscore');
-var Rss = require('rss');
+
 var Handlebars = require('handlebars');
 var version = require('./package.json').version;
 
@@ -29,11 +29,8 @@ var metadataMarker = '@@';
 
 var footnoteAnchorRegex = /[#"]fn\d+/g;
 var footnoteIdRegex = /fnref\d+/g;
-var utcOffset = 5;
 var cacheResetTimeInMillis = 1800000;
 
-var renderedRss = {};
-var renderedAlternateRss = {};
 global.headerSource;
 global.footerSource = null;
 global.postHeaderTemplate = null;
@@ -44,6 +41,7 @@ var Posts = require('./lib/posts');
 var CUtils  = require('./lib/camel_utils');
 var CCache = require('./lib/caching');
 var CamelTweet = require('./lib/tweet');
+var CamelRss = require('./lib/rss');
 
 /***************************************************
 * HELPER METHODS                                  *
@@ -221,53 +219,7 @@ function baseRouteHandler(file, sender, generator) {
 	}
 }
 
-// Generates a RSS feed.
-// The linkGenerator is what determines if the articles will link
-// to this site or to the target of a link post; it takes an article.
-// The completion function takes an object:
-// {
-//   date: // Date the generation happened
-//   rss: // Rendered RSS
-// }
-function generateRss(request, feedUrl, linkGenerator, completion) {
-	var feed = new Rss({
-		title: global.siteMetadata.SiteTitle,
-		description: 'Posts to ' + siteMetadata.SiteTitle,
-		feed_url: siteMetadata.SiteRoot + feedUrl,
-		site_url: siteMetadata.SiteRoot,
-		image_url: siteMetadata.SiteRoot + '/images/favicon.png',
-		author: 'Your Name',
-		copyright: '2013-' + new Date().getFullYear() + ' Your Name',
-		language: 'en',
-		pubDate: new Date().toString(),
-		ttl: '60'
-	});
 
-	var max = 10;
-	var i = 0;
-	Posts.sortedAndGrouped( function(postsByDay) {
-		postsByDay.forEach(function (day) {
-			day.articles.forEach(function (article) {
-				if (i < max) {
-					i += 1;
-					feed.item({
-						title: article.metadata.Title,
-						// Offset the time because Heroku's servers are GMT, whereas these dates are EST/EDT.
-						date: new Date(article.metadata.Date).addHours(utcOffset),
-						url: linkGenerator(article),
-						guid: CUtils.externalFilenameForFile(article.file, request),
-						description: article.unwrappedBody.replace(/<script[\s\S]*?<\/script>/gm, "").concat(article.rssFooter)
-					});
-				}
-			});
-		});
-
-		completion({
-			date: new Date(),
-			rss: feed.xml()
-		});
-	});
-}
 
 function homepageBuilder(page, completion, redirect) {
 	var indexInfo = Posts.generateHtmlAndMetadataForFile(postsRoot + 'index.md');
@@ -380,42 +332,11 @@ app.get('/page/:page', function (request, response) {
 });
 
 app.get('/rss', function (request, response) {
-	if ('user-agent' in request.headers && request.headers['user-agent'].has('subscriber')) {
-		console.log('RSS: ' + request.headers['user-agent']);
-	}
-	response.type('application/rss+xml');
-
-	if (typeof(renderedRss.date) === 'undefined' || new Date().getTime() - renderedRss.date.getTime() > 3600000) {
-		generateRss(request, '/rss', function (article) {
-			if (typeof(article.metadata.Link) !== 'undefined') {
-				return article.metadata.Link;
-			}
-			return CUtils.externalFilenameForFile(article.file, request);
-		}, function (rss) {
-			renderedRss = rss;
-			response.status(200).send(renderedRss.rss);
-		});
-	} else {
-		response.status(200).send(renderedRss.rss);
-	}
+	CamelRss.respondRss(request, response, false);
 });
 
 app.get('/rss-alternate', function (request, response) {
-	if ('user-agent' in request.headers && request.headers['user-agent'].has('subscriber')) {
-		console.log('Alternate RSS: ' + request.headers['user-agent']);
-	}
-	response.type('application/rss+xml');
-
-	if (typeof(renderedAlternateRss.date) === 'undefined' || new Date().getTime() - renderedAlternateRss.date.getTime() > 3600000) {
-		generateRss(request, '/rss-alternate', function (article) {
-			return CUtils.externalFilenameForFile(article.file, request);
-		}, function (rss) {
-			renderedAlternateRss = rss;
-			response.status(200).send(renderedAlternateRss.rss);
-		});
-	} else {
-		response.status(200).send(renderedAlternateRss.rss);
-	}
+	CamelRss.respondRss(request, response, true);
 });
 
 // Month view
