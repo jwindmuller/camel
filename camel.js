@@ -5,7 +5,6 @@
 var express = require('express');
 var compress = require('compression');
 var http = require('http');
-var util = require('util');
 var fs = require('fs');
 var sugar = require('sugar');
 var _ = require('underscore');
@@ -296,112 +295,9 @@ app.get('/rss-alternate', function (request, response) {
 	CamelRss.respondRss(request, response, true);
 });
 
-// Year view
-app.get(/^\/(\d{4})\/?$/, function(request, response) {
-	var year = request.params[0];
-	
-	var currentMonth = null;
-	
-	Posts.sortedAndGrouped({
-		filtering: {
-			year: year
-		},
-		completion: postListBuilder(request, response,
-			year,
-			'{Month}', '{MM}'
-		)
-	});
-});
-
-// Month view
-app.get('/:year/:month', function (request, response) {
-	var seekingDay = new Date(request.params.year, request.params.month - 1);
-	Posts.sortedAndGrouped({
-		filtering: {
-			year : request.params.year,
-			month: request.params.month - 1
-		},
-		completion: postListBuilder(request, response,
-			seekingDay.format('{Month}'),
-			'{Weekday}, {Month} {d}', '{dd}'
-		)
-	});
-});
-
-// Day view
-app.get('/:year/:month/:day', function (request, response) {
-	var seekingDay = new Date(request.params.year, request.params.month - 1, request.params.day);
-	Posts.sortedAndGrouped(
-		{
-			filtering: {
-				year : request.params.year,
-				month: request.params.month - 1,
-				day  : request.params.day,
-			},
-			completion: postListBuilder(request, response,
-				util.format(
-					'<h1>Posts from %s</h1>',
-					seekingDay.format('{Weekday}, {Month} {d}, {yyyy}')
-				),
-				'', false
-			)
-		}
-	);
-});
-
-function postListBuilder(request, response, title, subTitleFormat, subtitleLinkFormat) {
-    return function(postsByDay) {
-        var pageContent  = util.format('<h1>%s</h1>', title);
-        var lastSubtitle = '';
-        var links        = '';
-        postsByDay.each(function(day) {
-            var subtitle = day.date.format(subTitleFormat);
-            if (subtitleLinkFormat) {
-            	subtitle = util.format('<a href="%s">%s</a>', day.date.format(subtitleLinkFormat), subtitle);
-            }
-            subtitle = util.format('<h2>%s</h2>', subtitle);
-
-            if (subTitleFormat !== '' && subtitle != lastSubtitle) {
-            	if (links !== '') {
-            		pageContent += util.format('<ul>%s</ul>', links);
-            	}
-                pageContent += subtitle;
-                lastSubtitle = subtitle;
-                links = '';
-            }
-
-            day.articles.each(function (article) {
-                links += util.format(
-                    '<li><a href="%s">%s</a></li>',
-                    article.metadata.relativeLink,
-                    article.metadata.Title
-                );
-            });
-
-            if (subTitleFormat === '') {
-            	pageContent += util.format('<ul>%s</ul>', links);
-            	links = '';
-            }
- 
-        });
-        if (links !== '') {
-        	pageContent += util.format('<ul>%s</ul>', links);
-        }
-
-        if (postsByDay.length === 0) {
-            pageContent += "<i>No posts found.</i>";
-        }
-
-         var header = CUtils.replaceMetadata(global.siteMetadata, headerSource).replace(
-            metadataMarker + 'Title' + metadataMarker,
-            title + '&mdash;' + siteMetadata.SiteTitle
-        );
-        response.status(200).send(
-            header + pageContent + global.footerSource
-        );
-    };
-}
-
+app.get(/^\/(\d{4})\/?$/,     Posts.yyyy.bind(Posts));
+app.get('/:year/:month',      Posts.yyyyMm.bind(Posts));
+app.get('/:year/:month/:day', Posts.yyyyMmDd.bind(Posts));
 
 // Get a blog post, such as /2014/3/17/birthday
 app.get('/:year/:month/:day/:slug', function (request, response) {
