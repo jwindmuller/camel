@@ -309,16 +309,10 @@ app.get('/count', function (request, response) {
 	});
 });
 
-// Support for non-blog posts, such as /about, as well as years, such as /2014.
+// Support for non-blog posts, such as /about
 app.get('/:slug', function (request, response) {
-	// If this is a typical slug, send the file
-	if (isNaN(request.params.slug)) {
-		var file = postsRoot + request.params.slug;
-		loadAndSendMarkdownFile(file, response);
-	// If it's garbage (ie, a year less than 2013), send a 404.
-	} else {
-		send404(response, request.params.slug);
-	}
+	var file = postsRoot + request.params.slug;
+	loadAndSendMarkdownFile(file, response);
 });
 
 /***************************************************
