@@ -96,19 +96,15 @@ function init() {
 	CamelTweet.tweetLatestPost();
 }
 
-// Gets the rendered HTML for this file, with header/footer.
-function generateHtmlForFile(file) {
-	var fileData = Posts.generateHtmlAndMetadataForFile(file);
-	return fileData.html();
-}
-
 /***************************************************
 * ROUTE HELPERS                                   *
 ***************************************************/
 
 function send404(response, file) {
 	console.log('404: ' + file);
-	response.status(404).send(generateHtmlForFile('posts/404.md'));
+	response.status(404).send(
+		Posts.generateHtmlAndMetadataForFile('posts/404.md').html()
+	);
 }
 
 function loadAndSendMarkdownFile(file, response) {
@@ -140,7 +136,7 @@ function loadAndSendMarkdownFile(file, response) {
 		if (fs.existsSync(file + '.md')) {
 			found = true;
 			console.log('Sending file: ' + file);
-			var html = generateHtmlForFile(file);
+			var html = Posts.generateHtmlAndMetadataForFile(file).html();
 			response.status(200).send(html);
 		// Or is this a redirect?
 		} else if (fs.existsSync(file + '.redirect')) {
