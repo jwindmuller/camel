@@ -364,7 +364,7 @@ app.get('/:year/:month', function (request, response) {
 		if (!anyFound) {
 			html += "<i>No posts found.</i>";
 		}
-		var header = performMetadataReplacements(global.siteMetadata, headerSource).replace(
+		var header = CUtils.replaceMetadata(global.siteMetadata, headerSource).replace(
 			metadataMarker + 'Title' + metadataMarker,
 			seekingDay.format('{Month} {yyyy}') + '&mdash;' + siteMetadata.SiteTitle);
 		response.status(200).send(header + html + global.footerSource);
@@ -385,7 +385,7 @@ app.get('/:year/:month/:day', function (request, response) {
 					html += '<li><a href="' + article.metadata.relativeLink + '">' + article.metadata.Title + '</a></li>';
 				});
 
-				var header = performMetadataReplacements(global.siteMetadata, headerSource).replace(
+				var header = CUtils.replaceMetadata(global.siteMetadata, headerSource).replace(
 					metadataMarker + 'Title' + metadataMarker,
 					seekingDay.format('{Weekday}, {Month} {d}, {Year}'));
 				response.status(200).send(header + html + global.footerSource);
