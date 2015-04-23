@@ -27,17 +27,6 @@ app.use(function (request, response, next) {
 	next();
 });
 
-var cacheResetTimeInMillis = 1800000;
-
-global.headerSource = null;
-global.footerSource = null;
-global.postHeaderTemplate = null;
-global.rssFooterTemplate = null;
-global.siteMetadata = {};
-global.postsRoot = './posts/'
-global.metadataMarker = '@@';
-
-
 /***************************************************
 * ROUTES                                          *
 ***************************************************/
@@ -90,6 +79,15 @@ app.get('/:slug', Posts.staticPage.bind(this));
 * INITIALIZE                                      *
 ***************************************************/
 
+global.cacheResetTimeInMillis = 1800000;
+global.headerSource = null;
+global.footerSource = null;
+global.postHeaderTemplate = null;
+global.rssFooterTemplate = null;
+global.siteMetadata = {};
+global.postsRoot = './posts/'
+global.metadataMarker = '@@';
+
 (function init() {
 	function loadHeaderFooter(file, completion) {
 		var templateRoot = './templates/';
@@ -133,7 +131,7 @@ app.get('/:slug', Posts.staticPage.bind(this));
 	setInterval(function() {
 		CCache.empty();
 		CamelTweet.tweetLatestPost();
-	}, cacheResetTimeInMillis);
+	}, global.cacheResetTimeInMillis);
 
 	CamelTweet.tweetLatestPost();
 })();
