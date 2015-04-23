@@ -12,6 +12,13 @@ var _ = require('underscore');
 var Handlebars = require('handlebars');
 var version = require('./package.json').version;
 
+var Listings   = require('./lib/listings');
+var Posts      = require('./lib/posts');
+var CUtils     = require('./lib/camel_utils');
+var CCache     = CUtils.Cache;
+var CamelTweet = require('./lib/tweet');
+var CamelRss   = require('./lib/rss');
+
 var app = express();
 app.use(compress());
 app.use(express.static("public"));
@@ -22,27 +29,15 @@ app.use(function (request, response, next) {
 });
 var server = http.createServer(app);
 
-// "Statics"
-var postsRoot = './posts/';
-var templateRoot = './templates/';
-var metadataMarker = '@@';
-
-var footnoteAnchorRegex = /[#"]fn\d+/g;
-var footnoteIdRegex = /fnref\d+/g;
 var cacheResetTimeInMillis = 1800000;
 
-global.headerSource;
+global.headerSource = null;
 global.footerSource = null;
 global.postHeaderTemplate = null;
 global.rssFooterTemplate = null;
 global.siteMetadata = {};
-
-var Listings = require('./lib/listings');
-var Posts = require('./lib/posts');
-var CUtils  = require('./lib/camel_utils');
-var CCache  = CUtils.Cache;
-var CamelTweet = require('./lib/tweet');
-var CamelRss = require('./lib/rss');
+global.postsRoot = './posts/'
+global.metadataMarker = '@@';
 
 /***************************************************
 * HELPER METHODS                                  *
@@ -50,6 +45,7 @@ var CamelRss = require('./lib/rss');
 
 
 function loadHeaderFooter(file, completion) {
+	var templateRoot = './templates/';
 	fs.exists(templateRoot + file, function(exists) {
 		if (exists) {
 			fs.readFile(templateRoot + file, {encoding: 'UTF8'}, function (error, data) {
@@ -103,19 +99,20 @@ function init() {
 app.get('/',           Listings.index.bind(Listings));
 app.get('/page/:page', Listings.page.bind(Listings));
 
+// RSS
 app.get('/rss', function (request, response) {
 	CamelRss.respondRss(request, response, false);
 });
-
 app.get('/rss-alternate', function (request, response) {
 	CamelRss.respondRss(request, response, true);
 });
 
+// Archives
 app.get(/^\/(\d{4})\/?$/,     Posts.yyyy.bind(Posts));
 app.get('/:year/:month',      Posts.yyyyMm.bind(Posts));
 app.get('/:year/:month/:day', Posts.yyyyMmDd.bind(Posts));
 
-// Get a blog post, such as /2014/3/17/birthday
+// Blog Post, such as /2014/3/17/birthday
 app.get('/:year/:month/:day/:slug', Posts.single.bind(this));
 
 // Empties the cache.
@@ -139,7 +136,7 @@ app.get('/count', function (request, response) {
 	});
 });
 
-// Support for non-blog posts, such as /about
+// Pages, such as /about
 app.get('/:slug', Posts.staticPage.bind(this));
 
 /***************************************************
