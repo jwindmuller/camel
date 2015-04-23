@@ -9,3 +9,8 @@ pids
 
 # Dependencies
 node_modules
+bower_components
+
+public/css
+public/js
+public/img
