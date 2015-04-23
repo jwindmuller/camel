@@ -39,7 +39,7 @@ global.siteMetadata = {};
 
 var Posts = require('./lib/posts');
 var CUtils  = require('./lib/camel_utils');
-var CCache = require('./lib/caching');
+var CCache  = CUtils.Cache;
 var CamelTweet = require('./lib/tweet');
 var CamelRss = require('./lib/rss');
 
@@ -98,45 +98,6 @@ function init() {
 * ROUTE HELPERS                                   *
 ***************************************************/
 
-function send404(response, file) {
-	console.log('404: ' + file);
-	response.status(404).send(
-		Posts.generateHtmlAndMetadataForFile('posts/404.md').html()
-	);
-}
-
-function loadAndSendMarkdownFile(file, response) {
-	if (CCache.getRenderedPost(file) !== null) {
-		// Send the cached version.
-		console.log('Sending cached file: ' + file);
-		response.status(200).send(CCache.getRenderedPost(file).html());
-	} else {
-		var found = false;
-		// Is this a post?
-		if (fs.existsSync(file + '.md')) {
-			found = true;
-			console.log('Sending file: ' + file);
-			var html = Posts.generateHtmlAndMetadataForFile(file).html();
-			response.status(200).send(html);
-		// Or is this a redirect?
-		} else if (fs.existsSync(file + '.redirect')) {
-			var data = fs.readFileSync(file + '.redirect', {encoding: 'UTF8'});
-			if (data.length > 0) {
-				var parts = data.split('\n');
-				if (parts.length >= 2) {
-					found = true;
-					console.log('Redirecting to: ' + parts[1]);
-					response.redirect(parseInt(parts[0], 10), parts[1]);
-				}
-			}
-		}
-
-		if (!found) {
-			send404(response, file);
-			return;
-		}
-	}
-}
 
 // Handles a route by trying the cache first.
 // file: file to try.
@@ -159,7 +120,7 @@ function baseRouteHandler(file, sender, generator) {
 
 
 function homepageBuilder(page, completion, redirect) {
-	var indexInfo = Posts.generateHtmlAndMetadataForFile(postsRoot + 'index.md');
+	var indexInfo = CUtils.generateHtmlAndMetadataForFile(postsRoot + 'index.md');
 	var footnoteIndex = 0;
 
 	Handlebars.registerHelper('formatDate', function (date) {
@@ -207,7 +168,7 @@ function homepageBuilder(page, completion, redirect) {
 			footerData.nextPage = page + 1;
 		}
 
-		var fileData = Posts.generateHtmlAndMetadataForFile(postsRoot + 'index.md');
+		var fileData = CUtils.generateHtmlAndMetadataForFile(postsRoot + 'index.md');
 		var metadata = fileData.metadata;
 		var header = fileData.header;
 		// Replace <title>...</title> with one-off for homepage, because it doesn't show both Page & Site titles.
@@ -282,11 +243,7 @@ app.get('/:year/:month',      Posts.yyyyMm.bind(Posts));
 app.get('/:year/:month/:day', Posts.yyyyMmDd.bind(Posts));
 
 // Get a blog post, such as /2014/3/17/birthday
-app.get('/:year/:month/:day/:slug', function (request, response) {
-	var file = postsRoot + request.params.year + '/' + request.params.month + '/' + request.params.day + '/' + request.params.slug;
-
-	loadAndSendMarkdownFile(file, response);
-});
+app.get('/:year/:month/:day/:slug', Posts.single.bind(this));
 
 // Empties the cache.
 // app.get('/tosscache', function (request, response) {
@@ -310,10 +267,7 @@ app.get('/count', function (request, response) {
 });
 
 // Support for non-blog posts, such as /about
-app.get('/:slug', function (request, response) {
-	var file = postsRoot + request.params.slug;
-	loadAndSendMarkdownFile(file, response);
-});
+app.get('/:slug', Posts.staticPage.bind(this));
 
 /***************************************************
 * STARTUP                                         *
