@@ -132,6 +132,7 @@ app.get('/:slug', Posts.staticPage.bind(this));
 	// Kill the cache every 30 minutes.
 	setInterval(function() {
 		CCache.empty();
+		CamelTweet.tweetLatestPost();
 	}, cacheResetTimeInMillis);
 
 	CamelTweet.tweetLatestPost();
