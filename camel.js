@@ -2,15 +2,14 @@
 * INITIALIZATION                                  *
 ***************************************************/
 
-var express = require('express');
-var compress = require('compression');
-var http = require('http');
-var fs = require('fs');
-var sugar = require('sugar');
-var _ = require('underscore');
-
+var express    = require('express');
+var compress   = require('compression');
+var http       = require('http');
+var fs         = require('fs');
+var sugar      = require('sugar');
+var _          = require('underscore');
 var Handlebars = require('handlebars');
-var version = require('./package.json').version;
+var version    = require('./package.json').version;
 
 var Listings   = require('./lib/listings');
 var Posts      = require('./lib/posts');
@@ -27,7 +26,6 @@ app.use(function (request, response, next) {
 	response.header('X-powered-by', 'Camel (https://github.com/cliss/camel)');
 	next();
 });
-var server = http.createServer(app);
 
 var cacheResetTimeInMillis = 1800000;
 
@@ -39,57 +37,6 @@ global.siteMetadata = {};
 global.postsRoot = './posts/'
 global.metadataMarker = '@@';
 
-/***************************************************
-* HELPER METHODS                                  *
-***************************************************/
-
-
-function loadHeaderFooter(file, completion) {
-	var templateRoot = './templates/';
-	fs.exists(templateRoot + file, function(exists) {
-		if (exists) {
-			fs.readFile(templateRoot + file, {encoding: 'UTF8'}, function (error, data) {
-				if (!error) {
-					completion(data);
-				}
-			});
-		}
-	});
-}
-
-function init() {
-	loadHeaderFooter('defaultTags.html', function (data) {
-		// Note this comes in as a flat string; split on newlines for parsing metadata.
-		global.siteMetadata = CUtils.parseMetadata(data.split('\n'));
-
-		// This relies on the above, so nest it.
-		loadHeaderFooter('header.html', function (data) {
-			global.headerSource = data;
-		});
-	});
-	loadHeaderFooter('footer.html', function (data) {
-		global.footerSource = data;
-	});
-	loadHeaderFooter('rssFooter.html', function (data) {
-		global.rssFooterTemplate = Handlebars.compile(data);
-	});
-	loadHeaderFooter('postHeader.html', function (data) {
-		Handlebars.registerHelper('formatPostDate', function (date) {
-			return new Handlebars.SafeString(new Date(date).format('{Weekday}, {d} {Month} {yyyy}'));
-		});
-		Handlebars.registerHelper('formatIsoDate', function (date) {
-			return new Handlebars.SafeString(typeof(date) !== 'undefined' ? new Date(date).iso() : '');
-		});
-		global.postHeaderTemplate = Handlebars.compile(data);
-	});
-
-	// Kill the cache every 30 minutes.
-	setInterval(function() {
-		CCache.empty();
-	}, cacheResetTimeInMillis);
-
-	CamelTweet.tweetLatestPost();
-}
 
 /***************************************************
 * ROUTES                                          *
@@ -140,10 +87,64 @@ app.get('/count', function (request, response) {
 app.get('/:slug', Posts.staticPage.bind(this));
 
 /***************************************************
+* INITIALIZE                                      *
+***************************************************/
+
+(function init() {
+	function loadHeaderFooter(file, completion) {
+		var templateRoot = './templates/';
+		fs.exists(templateRoot + file, function(exists) {
+			if (exists) {
+				fs.readFile(templateRoot + file, {encoding: 'UTF8'}, function (error, data) {
+					if (!error) {
+						completion(data);
+					}
+				});
+			}
+		});
+	}
+
+	loadHeaderFooter('defaultTags.html', function (data) {
+		// Note this comes in as a flat string; split on newlines for parsing metadata.
+		global.siteMetadata = CUtils.parseMetadata(data.split('\n'));
+
+		// This relies on the above, so nest it.
+		loadHeaderFooter('header.html', function (data) {
+			global.headerSource = data;
+		});
+	});
+	loadHeaderFooter('footer.html', function (data) {
+		global.footerSource = data;
+	});
+	loadHeaderFooter('rssFooter.html', function (data) {
+		global.rssFooterTemplate = Handlebars.compile(data);
+	});
+	loadHeaderFooter('postHeader.html', function (data) {
+		Handlebars.registerHelper('formatPostDate', function (date) {
+			return new Handlebars.SafeString(new Date(date).format('{Weekday}, {d} {Month} {yyyy}'));
+		});
+		Handlebars.registerHelper('formatIsoDate', function (date) {
+			return new Handlebars.SafeString(typeof(date) !== 'undefined' ? new Date(date).iso() : '');
+		});
+		global.postHeaderTemplate = Handlebars.compile(data);
+	});
+
+	// Kill the cache every 30 minutes.
+	setInterval(function() {
+		CCache.empty();
+	}, cacheResetTimeInMillis);
+
+	CamelTweet.tweetLatestPost();
+})();
+
+/***************************************************
 * STARTUP                                         *
 ***************************************************/
-init();
-var port = Number(process.env.PORT || 5000);
+
+var server = http.createServer(app);
+var port   = Number(process.env.PORT || 5000);
 server.listen(port, function () {
-console.log('Camel v' + version + ' server started on port %s', server.address().port);
+	console.log(
+		'Camel v' + version + ' server started on port %s', server.address().port
+	);
 });
