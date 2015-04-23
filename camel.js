@@ -17,6 +17,7 @@ var CUtils     = require('./lib/camel_utils');
 var CCache     = CUtils.Cache;
 var CamelTweet = require('./lib/tweet');
 var CamelRss   = require('./lib/rss');
+var Dropbox    = require('./lib/dropbox');
 
 var app = express();
 app.use(compress());
@@ -34,6 +35,8 @@ app.use(function (request, response, next) {
 // Pages
 app.get('/',           Listings.index.bind(Listings));
 app.get('/page/:page', Listings.page.bind(Listings));
+
+app.use('/db', Dropbox);
 
 // RSS
 app.get('/rss', function (request, response) {
