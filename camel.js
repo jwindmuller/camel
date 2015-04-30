@@ -3,6 +3,7 @@
 ***************************************************/
 
 var express    = require('express');
+var cookies    = require('cookie-parser')
 var compress   = require('compression');
 var http       = require('http');
 var fs         = require('fs');
@@ -20,6 +21,7 @@ var CamelRss   = require('./lib/rss');
 var Dropbox    = require('./lib/dropbox');
 
 var app = express();
+app.use(cookies());
 app.use(compress());
 app.use(express.static("public"));
 app.use(express.static("posts"));
